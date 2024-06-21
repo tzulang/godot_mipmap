@@ -1,40 +1,25 @@
 extends Sprite2D
  
-
-
- 
-
 var _bind_counter: int = 0;
 
 func _init_heightmap():
 	
-	#var noise := FastNoiseLite.new()
-	#noise.noise_type = FastNoiseLite.TYPE_PERLIN
-	#noise.fractal_octaves = 5
-	#noise.fractal_type = FastNoiseLite.FRACTAL_FBM
-	#noise.fractal_lacunarity = 2
-	#noise.fractal_gain = 2
-	#noise.seed = 0
-	#noise.frequency = 0.0194
-	#var heightmap2 := noise.get_image(512, 512, false, false)
 	var heightmap := Image.new()
 	heightmap.copy_from( texture.get_image())
 	heightmap.convert(Image.FORMAT_L8)
-	#print(heightmap2.get_format() == heightmap.get_format())
-	#print(heightmap.get_size())
-	#print(heightmap.data['data'].size())
-	#print(heightmap2.data['data'].size())
+	
 	return heightmap
 	
 
-func _init_output_texture(rd: RenderingDevice, factor = 1):
+func _init_output_texture(rd: RenderingDevice, factor = 1.0):
 	var fmt := RDTextureFormat.new()
 	
 	@warning_ignore("integer_division")
-	fmt.width = texture.get_width() / factor
+	fmt.width = int(ceil(texture.get_width() / factor))
 	
 	@warning_ignore("integer_division")
-	fmt.height = texture.get_height()/ factor
+	fmt.height = int(ceil(texture.get_height()/ factor))
+	
 	fmt.format = RenderingDevice.DATA_FORMAT_R8_UNORM
 	fmt.usage_bits = RenderingDevice.TEXTURE_USAGE_CAN_UPDATE_BIT | \
 					 RenderingDevice.TEXTURE_USAGE_STORAGE_BIT | \
@@ -65,7 +50,9 @@ func _ready():
 	var shader = rd.shader_create_from_spirv(shader_spirv)
 	var pipeline = rd.compute_pipeline_create(shader)
  	
-	var output_data = _init_output_texture(rd, 2)
+	var factor := 4. / 3.;
+	
+	var output_data = _init_output_texture(rd, factor)
 	var output_data_texture = output_data['texture']
 	var output_data_uniform = output_data['uniform']
 	
@@ -88,6 +75,7 @@ func _ready():
 	
 		
 	@warning_ignore("integer_division")
+	
 	rd.compute_list_dispatch(compute_list, texture.get_width()/8, texture.get_height()/8, 1)
 	#rd.compute_list_add_barrier(compute_list)
 	# Tell the GPU we are done with this compute task
@@ -100,7 +88,10 @@ func _ready():
 	var data : PackedByteArray = rd.texture_get_data(output_data_texture, 0)
 	
 	@warning_ignore("integer_division")
-	var img : Image = (Image.create_from_data(texture.get_width()/2,  texture.get_height()/2, false, Image.FORMAT_L8, data))
+	
+	var img : Image = (Image.create_from_data(int(ceil(texture.get_width()/factor)),  
+											  int(ceil(texture.get_height()/factor)), 
+											  false, Image.FORMAT_L8, data))
 	var tex := ImageTexture.create_from_image(img)
 	texture = tex
 	
