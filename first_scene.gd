@@ -2,6 +2,43 @@ extends Sprite2D
  
 var _bind_counter: int = 0;
 
+func _get_buffer_size(s: int)-> PackedInt32Array :
+	
+	var arr := PackedInt32Array()
+	while s > 1:
+		 
+		arr.append(s)
+		@warning_ignore("integer_division")
+		s = int(s/2) + s%2
+	arr.append(s)
+	var res := PackedInt32Array([arr.size()])
+	res.append_array(arr)
+	return res 
+
+func _array_sum(arr :Array[int])->int:
+	return arr.reduce(func(a,b): return a + b, 0)
+
+func _get_buffer_sizes(x: int,  y: int)	:	
+	
+	var x_size := _get_buffer_size(x)
+	var y_size := _get_buffer_size(y)
+	
+	return [x_size, y_size]
+	
+	
+func _init_stoarge_buffer(rd: RenderingDevice, array: PackedInt32Array):
+	
+	var input_bytes = array.to_byte_array()
+	var buffer := rd.storage_buffer_create(input_bytes.size(), input_bytes)
+	
+	var uniform := RDUniform.new()
+	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform.binding = _bind_counter 
+	_bind_counter += 1
+	uniform.add_id(buffer) 
+	
+	return {'buffer': buffer, 'uniform': uniform }
+
 func _init_heightmap():
 	
 	var heightmap := Image.new()
@@ -11,22 +48,18 @@ func _init_heightmap():
 	return heightmap
 	
 
-func _init_output_texture(rd: RenderingDevice, factor = 1.0):
+func _init_output_texture(rd: RenderingDevice, factor = [1.0, 1.0]):
 	var fmt := RDTextureFormat.new()
 	
 	@warning_ignore("integer_division")
-	fmt.width = int(ceil(texture.get_width() / factor))
-	
-	@warning_ignore("integer_division")
-	fmt.height = int(ceil(texture.get_height()/ factor))
+	fmt.width = int(ceil(texture.get_width() / factor[0]))
+	fmt.height = int(ceil(texture.get_width() / factor[1]))
 	
 	fmt.format = RenderingDevice.DATA_FORMAT_R8_UNORM
 	fmt.usage_bits = RenderingDevice.TEXTURE_USAGE_CAN_UPDATE_BIT | \
 					 RenderingDevice.TEXTURE_USAGE_STORAGE_BIT | \
 					 RenderingDevice.TEXTURE_USAGE_CAN_COPY_FROM_BIT
 
-	#var image := Image.create(texture.get_width(), texture.get_height(), false, Image.FORMAT_L8)
-	#var data_texture : ImageTexture	 = ImageTexture.create_from_image(image)	
 	var output_data_texture: RID = rd.texture_create(fmt, RDTextureView.new())
 	
 	var output_data_uniform := RDUniform.new()
@@ -36,7 +69,7 @@ func _init_output_texture(rd: RenderingDevice, factor = 1.0):
 	
 	_bind_counter+=1
 	
-	return {'texture': output_data_texture, 'uniform': output_data_uniform}
+	return {'buffer': output_data_texture, 'uniform': output_data_uniform}
 	
 # Called when the node enters the scene tree for the first time.
 func _ready():
@@ -49,20 +82,25 @@ func _ready():
 	var shader_spirv = shader_file.get_spirv()
 	var shader = rd.shader_create_from_spirv(shader_spirv)
 	var pipeline = rd.compute_pipeline_create(shader)
- 	
-	var factor := 4. / 3.;
+	 	
+	var factor := [4. / 3., 2.] ;
 	
 	var output_data = _init_output_texture(rd, factor)
-	var output_data_texture = output_data['texture']
-	var output_data_uniform = output_data['uniform']
-	
+	var output_data_texture = output_data['buffer']
+ 	
 	var height_map = _init_heightmap()	
 	var input_data = _init_output_texture(rd)
-	rd.texture_update(input_data['texture'], 0, height_map.get_data())
+	rd.texture_update(input_data['buffer'], 0, height_map.get_data())
 	
-	var uniforms := [output_data_uniform, input_data['uniform']]	
-
- 
+	var size_data = _get_buffer_sizes(texture.get_width(), texture.get_height())
+	var x_size_buf = _init_stoarge_buffer(rd, size_data[0])
+	var y_size_buf = _init_stoarge_buffer(rd, size_data[1])
+		
+	var uniforms := [output_data['uniform'], 
+					 input_data['uniform'],
+					 x_size_buf['uniform'],
+					 y_size_buf['uniform'],
+					]	
 	
 	# Start compute list to start recording our compute commands
 	var compute_list = rd.compute_list_begin()
@@ -89,14 +127,16 @@ func _ready():
 	
 	@warning_ignore("integer_division")
 	
-	var img : Image = (Image.create_from_data(int(ceil(texture.get_width()/factor)),  
-											  int(ceil(texture.get_height()/factor)), 
+	var img : Image = (Image.create_from_data(int(ceil(texture.get_width()/factor[0])),  
+											  int(ceil(texture.get_height()/factor[1])), 
 											  false, Image.FORMAT_L8, data))
 	var tex := ImageTexture.create_from_image(img)
 	texture = tex
 	
-	rd.free_rid(output_data_texture) 
-	rd.free_rid(input_data['texture']) 
+	rd.free_rid(output_data['buffer']) 
+	rd.free_rid(input_data['buffer']) 
+	rd.free_rid(x_size_buf['buffer']) 
+	rd.free_rid(y_size_buf['buffer']) 
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
