@@ -14,12 +14,13 @@ noise = SubResource("FastNoiseLite_qo4di")
 [node name="FirstScene" type="Node2D"]
 
 [node name="ssss" type="Sprite2D" parent="."]
-position = Vector2(30.0001, 36)
+position = Vector2(52, 42)
 texture = SubResource("NoiseTexture2D_go7yq")
 centered = false
 script = ExtResource("1_emgmu")
 
 [node name="ssss2" type="Sprite2D" parent="."]
+visible = false
 position = Vector2(607, 29)
 texture = SubResource("NoiseTexture2D_go7yq")
 centered = false
