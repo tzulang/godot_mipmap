@@ -14,33 +14,31 @@ layout(set = 0, binding = 6, std430) restrict readonly buffer e { int iteration[
 
 
 float get_max_value(float a, float b, float c, float d) {
-
  	float value = max( a, b);
   	value = max( value, c);
   	value = max( value, d);
  	return value;
 }
 
-
-float get_prev_value(int index, ivec2 uv) {
-	ivec2 mip_offset = ivec2(x_offset[index], y_offset[index]);
-	ivec2 mip_lovcal_uv = uv - mip_offset;
+// calculate the previous mipmap uv coord
+// and calculate the max value between the 4 pixels
+float get_prev_value(int index, ivec2 mip_local_uv) {
 
 	ivec2 prev_mip_offset = ivec2(x_offset[index-1], y_offset[index-1]);
-	ivec2 prev_mip_local_uv = mip_lovcal_uv * 2;
+	ivec2 prev_mip_local_uv = mip_local_uv * 2;
 	ivec2 prev_mip_end = prev_mip_offset + ivec2(x_sizes[index-1]-1, y_sizes[index-1]-1);
 
+	// prev mipmap uv coords with respect to mipmap boundaries
 	ivec2 uv0 = prev_mip_offset + prev_mip_local_uv;
 	ivec2 uv1 = min(uv0 + ivec2(1, 0), prev_mip_end);
 	ivec2 uv2 = min(uv0 + ivec2(1, 1), prev_mip_end);
 	ivec2 uv3 = min(uv0 + ivec2(0, 1), prev_mip_end);
-
+	// max pixel value
 	float value = get_max_value(
 						imageLoad(output_data, uv0).x,
 						imageLoad(output_data, uv1).x,
 						imageLoad(output_data, uv2).x,
 						imageLoad(output_data, uv3).x);
-
 	return value;
 }
 
@@ -56,20 +54,25 @@ bool is_in_boundaries(int index, ivec2 uv){
 
 
 void main() {
-	ivec2 uv = ivec2(gl_GlobalInvocationID.xy);
+	// shader is called M times to create each level of the mipmap
+	// startig with n = 1 to M
 	int n = iteration[0];
 
-	if (n == 1)
+	// the  uv coord range is from 0,0 to the mipmap width, height
+	ivec2 local_uv = ivec2(gl_GlobalInvocationID.xy);
+	// uv coord in relation to the whole mipmap image
+	ivec2 uv = ivec2(gl_GlobalInvocationID.xy) + ivec2(x_offset[n], y_offset[n]);
+
+	if (n == 1) // original image
 	{
 		if (is_in_boundaries(1, uv)) {
 			float value = imageLoad(input_data, uv).x;
 			vec4 pixel = vec4(vec3(value), 1.0);
 			imageStore(output_data, uv, pixel);
 		}
-	} else
- 	{
+	} else { //other mip levels
 		if (is_in_boundaries(n, uv)) {
-			float value = get_prev_value(n, uv);
+			float value = get_prev_value(n, local_uv);
 			vec4 pixel = vec4(vec3(value), 1.0);
 			imageStore(output_data, uv, pixel);
 		}

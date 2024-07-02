@@ -118,9 +118,12 @@ func _ready():
  
 	@warning_ignore("integer_division")
 	var size_data  = _get_size_and_offsets_buffers(texture.get_width(), texture.get_height())
-	
-	var out_width = size_data[0][1] + size_data[0][2] 
-	var out_height =size_data[2][1]
+	var x_size = size_data[0]
+	var x_offsets = size_data[1]
+	var y_size = size_data[2]
+	var y_offsets = size_data[3]
+	var out_width = x_size[1] + x_size[2]
+	var out_height = y_size[1]
 	var output_data = _init_output_texture(rd, out_width, out_height)
 	var output_data_texture = output_data['buffer']
 
@@ -128,10 +131,10 @@ func _ready():
 	var input_data = _init_output_texture(rd, texture.width, texture.height)
 	var index_buff = PackedInt32Array([0]);
 
-	var x_size_buf = _init_storage_buffer(rd, size_data[0].to_byte_array())
-	var x_size_off = _init_storage_buffer(rd, size_data[1].to_byte_array())
-	var y_size_buf = _init_storage_buffer(rd, size_data[2].to_byte_array())
-	var y_size_off = _init_storage_buffer(rd, size_data[3].to_byte_array())
+	var x_size_buf = _init_storage_buffer(rd, x_size.to_byte_array())
+	var x_size_off = _init_storage_buffer(rd, x_offsets.to_byte_array())
+	var y_size_buf = _init_storage_buffer(rd, y_size.to_byte_array())
+	var y_size_off = _init_storage_buffer(rd, y_offsets.to_byte_array())
 	var iteration = _init_storage_buffer(rd, index_buff.to_byte_array())
 	
  
@@ -149,7 +152,7 @@ func _ready():
 	
 	
 	
-	for i in range(1, size_data[0][0]):
+	for i in range(1, x_size[0]):
 		index_buff[0] = i
 
 		var b_index_buff = index_buff.to_byte_array()
@@ -163,9 +166,9 @@ func _ready():
 		rd.compute_list_bind_uniform_set(compute_list, uniform_set, 0)
 	
 		@warning_ignore("integer_division")	
-		var x_groups = int(ceil(float(out_width)/8.))
-		var y_groups = int(ceil(float(out_height)/8.))
-		
+		var x_groups = int(ceil(float(x_size[i])/8.))
+		var y_groups = int(ceil(float(y_size[i])/8.))
+
 		#rd.compute_list_add_barrier(compute_list)
 		rd.compute_list_dispatch(compute_list, x_groups, y_groups, 1)
 
