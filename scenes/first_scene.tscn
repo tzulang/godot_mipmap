@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://cqxfewiqmitd"]
+
+[ext_resource type="PackedScene" uid="uid://dciqc5fglbdbj" path="res://scenes/max_mip_map.tscn" id="2_iuxxk"]
+
+[node name="FirstScene" type="Node2D"]
+
+[node name="MaxMipMap" parent="." instance=ExtResource("2_iuxxk")]
+visible = true
+position = Vector2(0, 0)
